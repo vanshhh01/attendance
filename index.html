@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f; --surface: #12121a; --card: #1a1a26; --border: #2a2a3d;
+  --accent: #6c63ff; --accent2: #ff6b6b; --accent3: #43e97b;
+  --text: #e8e8f0; --muted: #6b6b8a; --warn: #ffd166;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:var(--bg); color:var(--text); font-family:'Sora',sans-serif;
+  min-height:100vh; padding:24px 16px 80px;
+}
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+}
+.wrapper { max-width:780px; margin:0 auto; position:relative; z-index:1; }
+
+header { text-align:center; margin-bottom:28px; }
+header h1 {
+  font-family:'Space Mono',monospace; font-size:clamp(1.5rem,5vw,2.2rem);
+  letter-spacing:-1px;
+  background:linear-gradient(135deg,#6c63ff,#a78bfa,#ff6b6b);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+header p { color:var(--muted); font-size:.82rem; margin-top:5px; }
+
+/* PEOPLE BAR */
+.people-bar {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  margin-bottom:22px; background:var(--card); border:1px solid var(--border);
+  border-radius:14px; padding:12px 14px;
+}
+.people-bar-label {
+  font-family:'Space Mono',monospace; font-size:.62rem;
+  letter-spacing:2px; text-transform:uppercase; color:var(--muted);
+  margin-right:4px; flex-shrink:0;
+}
+.person-chip {
+  display:inline-flex; align-items:center; gap:7px; padding:7px 14px;
+  border-radius:99px; border:1.5px solid var(--border); background:var(--surface);
+  color:var(--muted); font-size:.82rem; font-family:'Sora',sans-serif;
+  cursor:pointer; transition:all .18s; user-select:none;
+}
+.person-chip:hover { border-color:var(--accent); color:var(--text); }
+.person-chip.active { border-color:var(--accent); background:rgba(108,99,255,.18); color:var(--text); font-weight:600; }
+.avatar {
+  width:22px; height:22px; border-radius:50%; display:flex;
+  align-items:center; justify-content:center; font-size:.65rem; font-weight:700; flex-shrink:0;
+}
+.chip-del {
+  width:16px; height:16px; background:rgba(255,107,107,.18); color:var(--accent2);
+  border-radius:50%; border:none; cursor:pointer; display:inline-flex;
+  align-items:center; justify-content:center; font-size:.62rem; margin-left:2px;
+  flex-shrink:0; transition:background .15s;
+}
+.chip-del:hover { background:rgba(255,107,107,.45); }
+.btn-add-person {
+  display:inline-flex; align-items:center; gap:6px; padding:7px 14px;
+  border-radius:99px; border:1.5px dashed var(--border); background:transparent;
+  color:var(--muted); font-size:.82rem; font-family:'Sora',sans-serif;
+  cursor:pointer; transition:all .18s; flex-shrink:0;
+}
+.btn-add-person:hover { border-color:var(--accent3); color:var(--accent3); }
+
+/* CARDS */
+.card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:22px; margin-bottom:16px; }
+.card-title {
+  font-family:'Space Mono',monospace; font-size:.73rem; letter-spacing:2px;
+  text-transform:uppercase; color:var(--accent); margin-bottom:15px;
+  display:flex; align-items:center; gap:8px;
+}
+
+/* STATS */
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:16px; }
+.stat { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:13px; text-align:center; }
+.stat-val { font-family:'Space Mono',monospace; font-size:1.5rem; font-weight:700; line-height:1; }
+.stat-lbl { font-size:.66rem; color:var(--muted); margin-top:4px; }
+.clr-purple { color:var(--accent); } .clr-green { color:var(--accent3); }
+.clr-red    { color:var(--accent2); } .clr-yellow { color:var(--warn); }
+
+/* PROGRESS */
+.progress-wrap { margin-bottom:14px; }
+.progress-label { display:flex; justify-content:space-between; font-size:.73rem; color:var(--muted); margin-bottom:5px; }
+.progress-bar { height:9px; background:var(--surface); border-radius:99px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:99px; transition:width .5s cubic-bezier(.4,0,.2,1); }
+.chips-row { display:flex; gap:8px; flex-wrap:wrap; }
+.chip { display:inline-flex; align-items:center; gap:5px; border-radius:99px; padding:4px 11px; font-size:.73rem; }
+.chip-purple { background:rgba(108,99,255,.12); border:1px solid rgba(108,99,255,.3); color:var(--accent); }
+.chip-green  { background:rgba(67,233,123,.08);  border:1px solid rgba(67,233,123,.3);  color:var(--accent3); }
+.chip-warn   { background:rgba(255,209,102,.08); border:1px solid rgba(255,209,102,.3); color:var(--warn); }
+
+/* INPUTS */
+.row { display:flex; gap:12px; flex-wrap:wrap; }
+.field { flex:1; min-width:110px; }
+label { display:block; font-size:.7rem; color:var(--muted); margin-bottom:4px; letter-spacing:.4px; }
+input, select {
+  width:100%; background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; padding:9px 11px; color:var(--text);
+  font-family:'Sora',sans-serif; font-size:.85rem; outline:none; transition:border-color .18s;
+}
+input:focus, select:focus { border-color:var(--accent); }
+input[type="number"]::-webkit-inner-spin-button { opacity:.4; }
+
+/* BUTTONS */
+.btn {
+  display:inline-flex; align-items:center; gap:6px; padding:9px 17px;
+  border-radius:8px; border:none; font-family:'Sora',sans-serif;
+  font-size:.83rem; font-weight:600; cursor:pointer; transition:opacity .18s, transform .1s;
+}
+.btn:active { transform:scale(.97); }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-success { background:var(--accent3); color:#0a0a0f; }
+.btn-danger  { background:var(--accent2); color:#fff; font-size:.71rem; padding:5px 10px; }
+.btn-edit    { background:var(--warn); color:#0a0a0f; font-size:.71rem; padding:5px 10px; }
+.btn:hover { opacity:.85; }
+
+/* LOG TABLE */
+.log-table { width:100%; border-collapse:collapse; font-size:.79rem; }
+.log-table th {
+  font-family:'Space Mono',monospace; font-size:.6rem; letter-spacing:1.5px;
+  text-transform:uppercase; color:var(--muted); padding:7px 9px;
+  text-align:left; border-bottom:1px solid var(--border);
+}
+.log-table td { padding:9px 9px; border-bottom:1px solid #1e1e2d; vertical-align:middle; }
+.log-table tr:last-child td { border-bottom:none; }
+.log-table tr:hover td { background:rgba(108,99,255,.04); }
+.badge { display:inline-block; padding:2px 8px; border-radius:99px; font-size:.67rem; font-weight:600; }
+.badge-good { background:rgba(67,233,123,.15); color:var(--accent3); }
+.badge-warn { background:rgba(255,209,102,.15); color:var(--warn); }
+.badge-bad  { background:rgba(255,107,107,.15); color:var(--accent2); }
+.empty { text-align:center; color:var(--muted); padding:26px; font-size:.8rem; }
+
+/* MODAL */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.72);
+  backdrop-filter:blur(5px); display:flex; align-items:center; justify-content:center;
+  z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal {
+  background:var(--card); border:1px solid var(--border); border-radius:16px;
+  padding:26px; width:92%; max-width:400px;
+  transform:translateY(16px); transition:transform .2s;
+}
+.modal-overlay.open .modal { transform:translateY(0); }
+.modal h3 { font-family:'Space Mono',monospace; font-size:.83rem; margin-bottom:14px; color:var(--accent); }
+.modal-actions { display:flex; gap:10px; margin-top:15px; justify-content:flex-end; }
+.field-gap { margin-bottom:12px; }
+
+/* COLOR PICKER */
+.colors { display:flex; gap:7px; flex-wrap:wrap; margin-top:8px; }
+.color-dot {
+  width:24px; height:24px; border-radius:50%; cursor:pointer;
+  border:2.5px solid transparent; transition:border-color .13s, transform .13s;
+}
+.color-dot:hover { transform:scale(1.15); }
+.color-dot.selected { border-color:#fff; transform:scale(1.1); }
+
+/* info box */
+.info-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:12px 14px; font-size:.78rem; color:var(--muted); margin-top:14px;
+  display:flex; flex-direction:column; gap:5px;
+}
+.info-box span { display:flex; justify-content:space-between; }
+.info-box b { color:var(--text); }
+
+@media(max-width:500px) {
+  .row { flex-direction:column; }
+  .stats { grid-template-columns:repeat(2,1fr); }
+  .people-bar { gap:7px; }
+}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+<header>
+  <h1>// Attendance Tracker</h1>
+  <p>Mon–Fri &middot; 8 classes/day (Wed: 7) &middot; Target ≥ 75%</p>
+</header>
+
+<!-- PEOPLE BAR -->
+<div class="people-bar" id="peopleBar">
+  <span class="people-bar-label">People</span>
+  <button class="btn-add-person" onclick="openAddPerson()">＋ Add Person</button>
+</div>
+
+<!-- EMPTY STATE -->
+<div id="noPerson" class="card" style="text-align:center;color:var(--muted);display:none;">
+  <div style="font-size:2.2rem;margin-bottom:10px;">👥</div>
+  <div style="font-size:.88rem;">No people yet.<br>Click <b style="color:var(--accent3);">＋ Add Person</b> to get started.</div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="mainContent" style="display:none;">
+
+  <!-- OLD ATTENDANCE -->
+  <div class="card">
+    <div class="card-title"><span>📂</span> Old Attendance (till 8 May)</div>
+    <div class="row">
+      <div class="field">
+        <label>Total Lectures Held</label>
+        <input type="number" id="seedTotal" min="0" placeholder="e.g. 120">
+      </div>
+      <div class="field">
+        <label>Lectures Attended</label>
+        <input type="number" id="seedAttended" min="0" placeholder="e.g. 98">
+      </div>
+    </div>
+    <div style="margin-top:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="saveSeed()">💾 Save Old Data</button>
+      <span id="seedStatus" style="font-size:.73rem;color:var(--muted);"></span>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="card">
+    <div class="card-title">
+      <span>📊</span> Summary —
+      <span id="activeName" style="color:var(--text);text-transform:none;letter-spacing:0;font-size:.85rem;font-weight:600;"></span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-val clr-purple" id="sumTotal">0</div><div class="stat-lbl">Total Classes</div></div>
+      <div class="stat"><div class="stat-val clr-green"  id="sumAttended">0</div><div class="stat-lbl">Attended</div></div>
+      <div class="stat"><div class="stat-val clr-red"    id="sumMissed">0</div><div class="stat-lbl">Missed</div></div>
+      <div class="stat"><div class="stat-val clr-yellow" id="sumPct">—</div><div class="stat-lbl">Attendance %</div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-label"><span>Attendance</span><span>75% required</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+    </div>
+    <div class="chips-row" style="margin-bottom:12px;">
+      <div class="chip chip-purple" id="targetChip">🎯 —</div>
+      <div class="chip chip-green"  id="safeChip">✅ —</div>
+    </div>
+    <!-- Detailed breakdown -->
+    <div class="info-box" id="infoBox" style="display:none;">
+      <span>Classes to attend to reach 75%: <b id="infoNeed">—</b></span>
+      <span>Classes you can still skip (stay ≥75%): <b id="infoSkip">—</b></span>
+      <span>Seed (old data): <b id="infoSeed">—</b></span>
+      <span>From daily log: <b id="infoLog">—</b></span>
+    </div>
+  </div>
+
+  <!-- ADD DAY -->
+  <div class="card">
+    <div class="card-title"><span>➕</span> Add Daily Attendance</div>
+    <div class="row">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="dayDate">
+      </div>
+      <div class="field">
+        <label>Classes Attended</label>
+        <input type="number" id="dayAttended" min="0" max="8" placeholder="0–8">
+      </div>
+    </div>
+    <div style="margin-top:13px;">
+      <button class="btn btn-success" onclick="addDay()">+ Add Day</button>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="card">
+    <div class="card-title"><span>📋</span> Daily Log</div>
+    <div id="logWrap"><div class="empty">No entries yet.</div></div>
+  </div>
+
+</div><!-- /mainContent -->
+</div><!-- /wrapper -->
+
+<!-- ADD PERSON MODAL -->
+<div class="modal-overlay" id="addPersonModal">
+  <div class="modal">
+    <h3>👤 Add Person</h3>
+    <div class="field field-gap">
+      <label>Name</label>
+      <input type="text" id="newPersonName" placeholder="e.g. Vansh" maxlength="30">
+    </div>
+    <label style="font-size:.7rem;color:var(--muted);letter-spacing:.4px;">Avatar Color</label>
+    <div class="colors" id="colorPicker"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="closeAddPerson()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddPerson()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT ENTRY MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>✏️ Edit Entry</h3>
+    <div class="field field-gap">
+      <label>Date</label>
+      <input type="date" id="editDate">
+    </div>
+    <div class="field">
+      <label>Classes Attended</label>
+      <input type="number" id="editAttended" min="0" max="8">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- RENAME MODAL -->
+<div class="modal-overlay" id="renameModal">
+  <div class="modal">
+    <h3>✏️ Rename Person</h3>
+    <div class="field">
+      <label>New Name</label>
+      <input type="text" id="renameName" placeholder="Name" maxlength="30">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="closeRenameModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmRename()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const COLORS = ['#6c63ff','#ff6b6b','#43e97b','#ffd166','#38bdf8','#f472b6','#fb923c','#a78bfa','#34d399','#f87171'];
+const WED_MAX  = 7;   // Wednesday max classes
+const NORM_MAX = 8;   // Mon/Tue/Thu/Fri max classes
+const TARGET   = 0.75;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+// Person: { id, name, color, seedTotal, seedAttended, seedSet, log: [{date, attended, total}] }
+let state = { people: [], activeId: null };
+let editIdx    = null;
+let renameId   = null;
+let pickedColor = COLORS[0];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PERSIST
+// ─────────────────────────────────────────────────────────────────────────────
+function saveState() {
+  try { localStorage.setItem('att_mp_v2', JSON.stringify(state)); } catch(e) {}
+}
+function loadState() {
+  try {
+    const d = localStorage.getItem('att_mp_v2');
+    if (d) state = JSON.parse(d);
+  } catch(e) { state = { people: [], activeId: null }; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// Returns number of classes held on a given date string (YYYY-MM-DD).
+// Uses T12:00:00 to avoid DST midnight-shift issues.
+function classesForDate(ds) {
+  const dow = new Date(ds + 'T12:00:00').getDay(); // 0=Sun,1=Mon,...,6=Sat
+  if (dow === 0 || dow === 6) return 0;             // weekend
+  return dow === 3 ? WED_MAX : NORM_MAX;            // Wednesday=7, else=8
+}
+
+function activePerson() { return state.people.find(p => p.id === state.activeId) || null; }
+
+function initials(name) {
+  return name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Compute totals for a person object.
+// Returns { total, attended, missed, pct } — all numbers, pct is 0–100.
+function computeTotals(p) {
+  let total    = p.seedSet ? p.seedTotal    : 0;
+  let attended = p.seedSet ? p.seedAttended : 0;
+  for (const e of p.log) {
+    total    += e.total;
+    attended += e.attended;
+  }
+  const missed = total - attended;
+  const pct    = total > 0 ? (attended / total) * 100 : 0;
+  return { total, attended, missed, pct };
+}
+
+// How many consecutive classes must be attended (assuming all future = 1 slot per class)
+// to bring pct up to TARGET, given current totals.
+// Formula: need attended+x / (total+x) >= TARGET
+//   => x >= (TARGET*total - attended) / (1 - TARGET)
+function classesNeededToReach75(attended, total) {
+  if (total === 0) return 0;
+  const raw = (TARGET * total - attended) / (1 - TARGET);
+  return raw <= 0 ? 0 : Math.ceil(raw);
+}
+
+// How many classes can be skipped while staying >= TARGET,
+// assuming all skipped add to total but not attended.
+// Formula: attended / (total + s) >= TARGET
+//   => s <= attended/TARGET - total
+function classesCanSkip(attended, total) {
+  if (total === 0) return 0;
+  const raw = (attended / TARGET) - total;
+  return raw < 0 ? 0 : Math.floor(raw);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────────────────────────────────────
+loadState();
+// Set default date to today
+document.getElementById('dayDate').value = new Date().toISOString().split('T')[0];
+buildColorPicker();
+renderAll();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COLOR PICKER
+// ─────────────────────────────────────────────────────────────────────────────
+function buildColorPicker(selIdx) {
+  selIdx = (selIdx == null) ? 0 : selIdx;
+  document.getElementById('colorPicker').innerHTML = COLORS.map((c, i) =>
+    `<div class="color-dot${i === selIdx ? ' selected' : ''}" style="background:${c}"
+      onclick="pickColor(this,'${c}')"></div>`
+  ).join('');
+  pickedColor = COLORS[selIdx];
+}
+
+function pickColor(el, c) {
+  pickedColor = c;
+  document.querySelectorAll('#colorPicker .color-dot').forEach(d => d.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDER ALL
+// ─────────────────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderPeopleBar();
+  const p = activePerson();
+  document.getElementById('noPerson').style.display    = p ? 'none' : '';
+  document.getElementById('mainContent').style.display = p ? ''     : 'none';
+  if (p) renderPersonView(p);
+}
+
+function renderPeopleBar() {
+  const bar    = document.getElementById('peopleBar');
+  const addBtn = bar.lastElementChild; // keep the "Add Person" button
+  // Remove all chips (children between label and addBtn)
+  while (bar.children.length > 2) bar.removeChild(bar.children[1]);
+
+  state.people.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'person-chip' + (p.id === state.activeId ? ' active' : '');
+    chip.innerHTML = `
+      <div class="avatar" style="background:${p.color}22;color:${p.color};">${escHtml(initials(p.name))}</div>
+      <span class="chip-name" title="Double-click to rename">${escHt
